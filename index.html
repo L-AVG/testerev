@@ -1,33 +1,193 @@
+Claro! Transformei o visual da página para um design mais claro, moderno e amigável, seguindo padrões de interfaces de chat atuais.
+
+Resumo das Melhorias Visuais:
+
+Tema Claro: Abandonei o tema escuro por um fundo cinza claro e um container de chat branco, o que aumenta a legibilidade e dá uma sensação mais "arejada".
+
+Bolhas de Mensagem: As mensagens agora são exibidas em "bolhas" (bubbles), como em aplicativos de mensagem populares. Mensagens do usuário ficam à direita (azul) e as da IA à esquerda (cinza).
+
+Tipografia Moderna: Troquei a fonte Arial por system-ui, que usa a fonte padrão e otimizada do sistema operacional do usuário (como Segoe UI no Windows, San Francisco no macOS/iOS), garantindo um visual nativo e limpo.
+
+Animação de "Pensando...": Em vez de texto estático, a IA agora mostra uma animação de três pontos pulsantes enquanto processa a resposta, melhorando a experiência do usuário.
+
+Layout e Espaçamento: Ajustei todos os espaçamentos (padding, margin) para um layout mais equilibrado e agradável. O campo de input e o botão de envio foram redesenhados para formar uma unidade coesa.
+
+Pequenos Detalhes: Adicionei sombras sutis, cantos arredondados mais suaves e transições para uma experiência mais polida.
+
+Arquivo index.html Atualizado
+
+Você só precisa substituir o conteúdo do seu index.html por este. O JavaScript foi ligeiramente ajustado para lidar com a nova estrutura das mensagens, tornando-o também mais robusto.
+
+(Os outros arquivos, netlify/functions/openai-proxy.js, package.json, e netlify.toml, podem permanecer os mesmos da versão anterior, pois a lógica de backend não mudou).
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Assistant OpenAI Web Demo</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #181c20; color: #eee; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-    #chat { width: 100%; max-width: 450px; background: #23272f; padding: 20px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-    #messages { height: 400px; overflow-y: auto; margin-bottom: 12px; border: 1px solid #444; border-radius: 5px; padding: 10px; }
-    .msg { margin: 8px 0; line-height: 1.4; }
-    .user { color: #56CCF2; }
-    .bot { color: #F2994A; }
-    #reset-btn { background: #444; color: #eee; border: none; padding: 8px 16px; border-radius: 5px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
-    #reset-btn:hover { background: #F2994A; color: #23272f; }
-    #chat-form { display: flex; }
-    #user-input { flex-grow: 1; padding: 10px; border: 1px solid #444; background: #181c20; color: #eee; border-radius: 5px 0 0 5px; }
-    #chat-form button { padding: 10px 15px; border: none; background: #56CCF2; color: #181c20; border-radius: 0 5px 5px 0; cursor: pointer; }
-    #chat-form:has(input:disabled) button { background: #444; cursor: not-allowed; }
+    :root {
+      --bg-color: #f4f7f9;
+      --chat-bg: #ffffff;
+      --user-msg-bg: #007bff;
+      --bot-msg-bg: #e9ebee;
+      --text-color: #333;
+      --user-text-color: #ffffff;
+      --input-bg: #f4f7f9;
+      --border-color: #dde3e8;
+      --shadow-color: rgba(0, 0, 0, 0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+      background: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    #chat {
+      width: 100%;
+      max-width: 450px;
+      height: 90vh;
+      max-height: 700px;
+      display: flex;
+      flex-direction: column;
+      background: var(--chat-bg);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px var(--shadow-color);
+      overflow: hidden;
+    }
+    
+    .chat-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .chat-header img {
+      display: block;
+      margin: 0 auto;
+      border-radius: 8px;
+      max-width: 100%;
+    }
+
+    #messages {
+      flex-grow: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    /* Custom Scrollbar */
+    #messages::-webkit-scrollbar { width: 6px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+    #messages::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    #messages::-webkit-scrollbar-thumb:hover { background: #999; }
+
+    .message-container { display: flex; max-width: 85%; }
+    .message-bubble { padding: 10px 15px; border-radius: 20px; line-height: 1.5; }
+    
+    .user { align-self: flex-end; }
+    .user .message-bubble {
+      background: var(--user-msg-bg);
+      color: var(--user-text-color);
+      border-bottom-right-radius: 5px;
+    }
+
+    .bot { align-self: flex-start; }
+    .bot .message-bubble {
+      background: var(--bot-msg-bg);
+      color: var(--text-color);
+      border-bottom-left-radius: 5px;
+    }
+    
+    /* "Thinking" animation */
+    .thinking span {
+        display: inline-block;
+        background-color: #999;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin: 0 1px;
+        animation: bob 1.4s infinite ease-in-out;
+    }
+    .thinking span:nth-of-type(1) { animation-delay: -0.32s; }
+    .thinking span:nth-of-type(2) { animation-delay: -0.16s; }
+    @keyframes bob {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1.0); }
+    }
+
+
+    .chat-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border-color);
+    }
+    
+    #reset-btn { 
+      background: #f1f1f1; 
+      color: #555; 
+      border: 1px solid #ddd; 
+      padding: 8px 16px; 
+      border-radius: 8px; 
+      margin-bottom: 12px; 
+      cursor: pointer; 
+      transition: all 0.2s; 
+      width: 100%;
+    }
+    #reset-btn:hover { background: #e0e0e0; border-color: #ccc; }
+
+    #chat-form { display: flex; gap: 8px; }
+    #user-input {
+      flex-grow: 1;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      background: var(--input-bg);
+      color: var(--text-color);
+      border-radius: 12px;
+      transition: border-color 0.2s;
+    }
+    #user-input:focus { outline: none; border-color: var(--user-msg-bg); }
+
+    #submit-btn {
+      padding: 12px 20px;
+      border: none;
+      background: var(--user-msg-bg);
+      color: var(--user-text-color);
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+    #submit-btn:disabled { background: #a0c7ff; cursor: not-allowed; }
+
   </style>
 </head>
 <body>
   <div id="chat">
-    <img id="top-image" src="https://i.imgur.com/5216Enl.png" alt="Imagem superior" style="display: block; margin: 0 auto 16px auto; border-radius: 8px; max-width: 100%;">
-    <button id="reset-btn" type="button">Reiniciar conversa</button>
+    <div class="chat-header">
+        <img src="https://i.imgur.com/5216Enl.png" alt="Imagem superior">
+    </div>
+
     <div id="messages"></div>
-    <form id="chat-form">
-      <input id="user-input" type="text" autocomplete="off" placeholder="Digite sua mensagem..." required>
-      <button id="submit-btn" type="submit">Enviar</button>
-    </form>
+
+    <div class="chat-footer">
+        <button id="reset-btn" type="button">Reiniciar Conversa</button>
+        <form id="chat-form">
+            <input id="user-input" type="text" autocomplete="off" placeholder="Digite sua mensagem..." required>
+            <button id="submit-btn" type="submit">Enviar</button>
+        </form>
+    </div>
   </div>
+
   <script>
     const assistant_id = 'asst_UXKXH9DTMWpg9mknfrLi2hiv';
     let thread_id = null;
@@ -38,11 +198,18 @@
     const submitBtn = document.getElementById('submit-btn');
 
     function addMessage(role, content) {
-      const el = document.createElement('div');
-      el.className = 'msg ' + role;
-      el.textContent = (role === 'user' ? 'Você: ' : 'IA: ') + content;
-      chatMessages.appendChild(el);
-      chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
+      const container = document.createElement('div');
+      container.className = `message-container ${role}`;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble';
+      bubble.innerHTML = content; // Usamos innerHTML para permitir a animação
+      
+      container.appendChild(bubble);
+      chatMessages.appendChild(container);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      return { container, bubble };
     }
 
     function clearMessages() {
@@ -60,12 +227,11 @@
       addMessage('bot', 'Conversa reiniciada. Pode perguntar!');
     };
 
-    // Função auxiliar para chamar o proxy do Netlify
     async function openaiProxy(endpoint, method = 'POST', body = {}) {
       const response = await fetch('/.netlify/functions/openai-proxy', {
-        method: 'POST', // O método para a Netlify Function é sempre POST
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint, method, body }) // Passamos o método real e o corpo para o proxy
+        body: JSON.stringify({ endpoint, method, body })
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -81,25 +247,24 @@
       
       addMessage('user', text);
       userInput.value = '';
-      toggleForm(true); // Desabilita o formulário
-      const thinkingMsg = addMessage('bot', 'Pensando...');
+      toggleForm(true);
+      
+      const thinkingAnimation = '<span></span><span></span><span></span>';
+      const { bubble: thinkingBubble } = addMessage('bot', thinkingAnimation);
+      thinkingBubble.classList.add('thinking');
 
       try {
-        // 1. Criar thread se ainda não existir
         if (!thread_id) {
           const threadData = await openaiProxy('threads', 'POST', {});
           thread_id = threadData.id;
         }
         
-        // 2. Adicionar mensagem ao thread
         await openaiProxy(`threads/${thread_id}/messages`, 'POST', { role: 'user', content: text });
         
-        // 3. Criar um "run"
         const runData = await openaiProxy(`threads/${thread_id}/runs`, 'POST', { assistant_id });
         let runStatus = runData.status;
         const run_id = runData.id;
         
-        // 4. Polling: Aguardar resultado do run
         while (['queued', 'in_progress'].includes(runStatus)) {
           await new Promise(r => setTimeout(r, 1500));
           const statusData = await openaiProxy(`threads/${thread_id}/runs/${run_id}`, 'GET');
@@ -110,22 +275,23 @@
             throw new Error(`A execução falhou com o status: ${runStatus}`);
         }
         
-        // 5. Obter as mensagens do thread (resposta final)
         const messagesData = await openaiProxy(`threads/${thread_id}/messages?order=asc`, 'GET');
         const lastMsg = messagesData.data.filter(m => m.run_id === run_id && m.role === 'assistant').pop();
         
-        document.querySelector('.msg.bot:last-child').textContent = 'IA: ' + (lastMsg?.content[0]?.text?.value || '[Erro ao obter resposta]');
+        const responseText = lastMsg?.content[0]?.text?.value || '[Erro ao obter resposta]';
+        thinkingBubble.classList.remove('thinking');
+        thinkingBubble.textContent = responseText;
 
       } catch (err) {
-        document.querySelector('.msg.bot:last-child').textContent = 'IA: Erro: ' + err.message;
+        thinkingBubble.classList.remove('thinking');
+        thinkingBubble.textContent = `Erro: ${err.message}`;
       } finally {
-        toggleForm(false); // Reabilita o formulário
+        toggleForm(false);
         userInput.focus();
       }
     };
     
-    // Inicia com uma mensagem de boas-vindas
-    addMessage('bot', 'Olá! Como posso ajudar hoje?');
+    addMessage('bot', 'Olá! qual nível de questão deseja?');
   </script>
 </body>
 </html>
