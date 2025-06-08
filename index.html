@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Assistant OpenAI Web Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #181c20; color: #eee; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    #chat { width: 100%; max-width: 450px; background: #23272f; padding: 20px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    #messages { height: 400px; overflow-y: auto; margin-bottom: 12px; border: 1px solid #444; border-radius: 5px; padding: 10px; }
+    .msg { margin: 8px 0; line-height: 1.4; }
+    .user { color: #56CCF2; }
+    .bot { color: #F2994A; }
+    #reset-btn { background: #444; color: #eee; border: none; padding: 8px 16px; border-radius: 5px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+    #reset-btn:hover { background: #F2994A; color: #23272f; }
+    #chat-form { display: flex; }
+    #user-input { flex-grow: 1; padding: 10px; border: 1px solid #444; background: #181c20; color: #eee; border-radius: 5px 0 0 5px; }
+    #chat-form button { padding: 10px 15px; border: none; background: #56CCF2; color: #181c20; border-radius: 0 5px 5px 0; cursor: pointer; }
+    #chat-form:has(input:disabled) button { background: #444; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div id="chat">
+    <img id="top-image" src="https://i.imgur.com/5216Enl.png" alt="Imagem superior" style="display: block; margin: 0 auto 16px auto; border-radius: 8px; max-width: 100%;">
+    <button id="reset-btn" type="button">Reiniciar conversa</button>
+    <div id="messages"></div>
+    <form id="chat-form">
+      <input id="user-input" type="text" autocomplete="off" placeholder="Digite sua mensagem..." required>
+      <button id="submit-btn" type="submit">Enviar</button>
+    </form>
+  </div>
+  <script>
+    const assistant_id = 'asst_UXKXH9DTMWpg9mknfrLi2hiv';
+    let thread_id = null;
+
+    const chatMessages = document.getElementById('messages');
+    const chatForm = document.getElementById('chat-form');
+    const userInput = document.getElementById('user-input');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function addMessage(role, content) {
+      const el = document.createElement('div');
+      el.className = 'msg ' + role;
+      el.textContent = (role === 'user' ? 'Você: ' : 'IA: ') + content;
+      chatMessages.appendChild(el);
+      chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
+    }
+
+    function clearMessages() {
+      chatMessages.innerHTML = '';
+    }
+
+    function toggleForm(disabled) {
+        userInput.disabled = disabled;
+        submitBtn.disabled = disabled;
+    }
+
+    document.getElementById('reset-btn').onclick = () => {
+      thread_id = null;
+      clearMessages();
+      addMessage('bot', 'Conversa reiniciada. Pode perguntar!');
+    };
+
+    // Função auxiliar para chamar o proxy do Netlify
+    async function openaiProxy(endpoint, method = 'POST', body = {}) {
+      const response = await fetch('/.netlify/functions/openai-proxy', {
+        method: 'POST', // O método para a Netlify Function é sempre POST
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint, method, body }) // Passamos o método real e o corpo para o proxy
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Erro na comunicação com o proxy.');
+      }
+      return await response.json();
+    }
+
+    chatForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const text = userInput.value.trim();
+      if (!text) return;
+      
+      addMessage('user', text);
+      userInput.value = '';
+      toggleForm(true); // Desabilita o formulário
+      const thinkingMsg = addMessage('bot', 'Pensando...');
+
+      try {
+        // 1. Criar thread se ainda não existir
+        if (!thread_id) {
+          const threadData = await openaiProxy('threads', 'POST', {});
+          thread_id = threadData.id;
+        }
+        
+        // 2. Adicionar mensagem ao thread
+        await openaiProxy(`threads/${thread_id}/messages`, 'POST', { role: 'user', content: text });
+        
+        // 3. Criar um "run"
+        const runData = await openaiProxy(`threads/${thread_id}/runs`, 'POST', { assistant_id });
+        let runStatus = runData.status;
+        const run_id = runData.id;
+        
+        // 4. Polling: Aguardar resultado do run
+        while (['queued', 'in_progress'].includes(runStatus)) {
+          await new Promise(r => setTimeout(r, 1500));
+          const statusData = await openaiProxy(`threads/${thread_id}/runs/${run_id}`, 'GET');
+          runStatus = statusData.status;
+        }
+
+        if (runStatus !== 'completed') {
+            throw new Error(`A execução falhou com o status: ${runStatus}`);
+        }
+        
+        // 5. Obter as mensagens do thread (resposta final)
+        const messagesData = await openaiProxy(`threads/${thread_id}/messages?order=asc`, 'GET');
+        const lastMsg = messagesData.data.filter(m => m.run_id === run_id && m.role === 'assistant').pop();
+        
+        document.querySelector('.msg.bot:last-child').textContent = 'IA: ' + (lastMsg?.content[0]?.text?.value || '[Erro ao obter resposta]');
+
+      } catch (err) {
+        document.querySelector('.msg.bot:last-child').textContent = 'IA: Erro: ' + err.message;
+      } finally {
+        toggleForm(false); // Reabilita o formulário
+        userInput.focus();
+      }
+    };
+    
+    // Inicia com uma mensagem de boas-vindas
+    addMessage('bot', 'Olá! Como posso ajudar hoje?');
+  </script>
+</body>
+</html>

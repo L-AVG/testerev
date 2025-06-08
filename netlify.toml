@@ -1,0 +1,14 @@
+# Configurações de build do Netlify
+[build]
+  # Diretório que o Netlify irá servir. Como nosso HTML está na raiz, usamos "."
+  # Se você tivesse uma pasta 'public' ou 'dist', usaria ela aqui.
+  publish = "." 
+  # Diretório onde as Netlify Functions estão localizadas.
+  functions = "netlify/functions"
+
+# Regra de redirecionamento para que todas as chamadas para a função funcionem
+# Isso não é estritamente necessário para este caso, mas é uma boa prática.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
